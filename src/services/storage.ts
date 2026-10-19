@@ -54,11 +54,15 @@ export function saveToStorage<T>(key: string, data: T): void {
 
 // Data loaders
 export const storageService = {
-  getCurrentUser: (): UserProfile => {
-    return getFromStorage<UserProfile>(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
+  getCurrentUser: (): UserProfile | null => {
+    return getFromStorage<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
   },
-  setCurrentUser: (user: UserProfile) => {
-    saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
+  setCurrentUser: (user: UserProfile | null) => {
+    if (user) {
+      saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
   },
   getStudents: (): Student[] => {
     return getFromStorage<Student[]>(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);

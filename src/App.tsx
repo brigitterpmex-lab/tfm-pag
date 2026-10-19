@@ -22,7 +22,7 @@ import {
 
 import { Header } from './components/layout/Header';
 import { Sidebar, TabId } from './components/layout/Sidebar';
-import { LoginModal } from './components/auth/LoginModal';
+import { LoginPage } from './components/auth/LoginPage';
 import { DashboardTab } from './components/dashboard/DashboardTab';
 import { StudentsTab } from './components/students/StudentsTab';
 import { CurriculumTab } from './components/curriculum/CurriculumTab';
@@ -31,11 +31,10 @@ import { ImprovementPlansTab } from './components/improvement/ImprovementPlansTa
 import { ImportExportModal } from './components/common/ImportExportModal';
 
 export default function App() {
-  // Global Session State
+  // Global Session State: null by default so user is strictly prompted to log in
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return storageService.getCurrentUser();
   });
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Global Context State
   const [selectedCourse, setSelectedCourse] = useState<string>(AVAILABLE_COURSES[0]);
@@ -106,12 +105,11 @@ export default function App() {
   const handleLogin = (user: UserProfile) => {
     setCurrentUser(user);
     storageService.setCurrentUser(user);
-    setIsLoginModalOpen(false);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setIsLoginModalOpen(true);
+    storageService.setCurrentUser(null);
   };
 
   const handleSwitchUser = (user: UserProfile) => {
@@ -235,39 +233,40 @@ export default function App() {
     );
   };
 
+  // If unauthenticated, display ONLY the LoginPage (no student data or dashboard is exposed)
+  if (!currentUser) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100/70 font-sans text-slate-800 flex flex-col">
       {/* Top Application Header */}
-      {currentUser && (
-        <Header
-          currentUser={currentUser}
-          selectedCourse={selectedCourse}
-          onSelectCourse={setSelectedCourse}
-          selectedSubject={selectedSubject}
-          onSelectSubject={setSelectedSubject}
-          selectedPeriod={selectedPeriod}
-          onSelectPeriod={setSelectedPeriod}
-          onSwitchUser={handleSwitchUser}
-          onOpenImportExport={() => setIsImportExportOpen(true)}
-          onLogout={handleLogout}
-          onResetData={handleResetData}
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        />
-      )}
+      <Header
+        currentUser={currentUser}
+        selectedCourse={selectedCourse}
+        onSelectCourse={setSelectedCourse}
+        selectedSubject={selectedSubject}
+        onSelectSubject={setSelectedSubject}
+        selectedPeriod={selectedPeriod}
+        onSelectPeriod={setSelectedPeriod}
+        onSwitchUser={handleSwitchUser}
+        onOpenImportExport={() => setIsImportExportOpen(true)}
+        onLogout={handleLogout}
+        onResetData={handleResetData}
+        onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+      />
 
       {/* Main Layout Area */}
       <div className="flex flex-1">
-        {currentUser && (
-          <Sidebar
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
-            criticalAlertsCount={criticalCount}
-            neeCount={courseNeeCount}
-            pendingPlansCount={pendingPlansCount}
-            isMobileOpen={isMobileSidebarOpen}
-            onCloseMobile={() => setIsMobileSidebarOpen(false)}
-          />
-        )}
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          criticalAlertsCount={criticalCount}
+          neeCount={courseNeeCount}
+          pendingPlansCount={pendingPlansCount}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {activeTab === 'dashboard' && (
@@ -291,7 +290,7 @@ export default function App() {
               selectedCourse={selectedCourse}
               selectedSubject={selectedSubject}
               students={students}
-              currentUser={currentUser || INITIAL_USERS[0]}
+              currentUser={currentUser}
               onUpdateStudent={handleUpdateStudent}
               onAddStudent={handleAddStudent}
             />
@@ -335,7 +334,7 @@ export default function App() {
               grades={grades}
               dbas={dbas}
               plans={plans}
-              currentUser={currentUser || INITIAL_USERS[0]}
+              currentUser={currentUser}
               initialPreselectedStudentId={preselectedStudentForPlan}
               onUpdatePlans={handleUpdatePlans}
               onGradeRecovered={handleGradeRecovered}
@@ -343,14 +342,6 @@ export default function App() {
           )}
         </main>
       </div>
-
-      {/* Login Modal */}
-      <LoginModal
-        isOpen={!currentUser || isLoginModalOpen}
-        onLogin={handleLogin}
-        onClose={() => setIsLoginModalOpen(false)}
-        canClose={Boolean(currentUser)}
-      />
 
       {/* Import / Export Modal */}
       <ImportExportModal

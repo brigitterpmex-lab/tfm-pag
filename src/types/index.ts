@@ -3,11 +3,13 @@ export type UserRole = 'docente' | 'orientador' | 'coordinador';
 export interface UserProfile {
   id: string;
   name: string;
+  username?: string;
   email: string;
   role: UserRole;
   title: string;
   institution: string;
   avatarUrl?: string;
+  password?: string;
 }
 
 export type PerformanceLevel = 'Bajo' | 'Básico' | 'Alto' | 'Superior';

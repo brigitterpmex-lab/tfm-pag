@@ -4,7 +4,9 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'usr-1',
     name: 'Lic. Carlos Andrés Restrepo',
+    username: 'carlos.restrepo',
     email: 'carlos.restrepo@institucion.edu.co',
+    password: 'profe123',
     role: 'docente',
     title: 'Docente Titular de Matemáticas y Ciencias',
     institution: 'I.E. Técnico República de Colombia'
@@ -12,7 +14,9 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'usr-2',
     name: 'Psic. Marcela Gómez Vargas',
+    username: 'marcela.gomez',
     email: 'marcela.gomez@institucion.edu.co',
+    password: 'orienta123',
     role: 'orientador',
     title: 'Orientadora Escolar y Coordinadora PIAR',
     institution: 'I.E. Técnico República de Colombia'
