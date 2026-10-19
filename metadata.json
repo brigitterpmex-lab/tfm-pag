@@ -1,0 +1,6 @@
+{
+  "name": "EduGestion Pro - Gestión Académica y Convivencial",
+  "description": "Plataforma integral para la gestión académica, convivencial, adaptaciones curriculares NEE y planes de mejoramiento con IA para docentes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
