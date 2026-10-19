@@ -59,6 +59,7 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
   const [selectedStudentId, setSelectedStudentId] = useState<string>(initialPreselectedStudentId || '');
   const [selectedPlanForDetail, setSelectedPlanForDetail] = useState<ImprovementPlan | null>(null);
   const [generatingWithAI, setGeneratingWithAI] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Creator Form fields
   const [failedEvalsInput, setFailedEvalsInput] = useState<string[]>([]);
@@ -83,10 +84,33 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
     return students.filter((s) => s.course === selectedCourse);
   }, [students, selectedCourse]);
 
+  // Sync when initialPreselectedStudentId changes
+  React.useEffect(() => {
+    if (initialPreselectedStudentId) {
+      setIsCreatorOpen(true);
+      handleSelectStudent(initialPreselectedStudentId);
+    }
+  }, [initialPreselectedStudentId]);
+
+  // When opening creator, if no student is selected, pick the first one
+  const handleOpenCreator = () => {
+    setIsCreatorOpen(true);
+    setGenerationError(null);
+    if (!selectedStudentId && courseStudents.length > 0) {
+      // Prefer a student with average < 3.0 or the first student
+      const failingStudent = courseStudents.find((st) => {
+        const g = calculateStudentGrade(st.id, selectedCourse, selectedSubject, selectedPeriod, grades, evaluations);
+        return g.average > 0 && g.average < 3.0;
+      });
+      handleSelectStudent(failingStudent ? failingStudent.id : courseStudents[0].id);
+    }
+  };
+
   // When a student is selected in creator, auto-detect failed evaluations
   const handleSelectStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
     setGeneratedDraft(null);
+    setGenerationError(null);
 
     const gradeInfo = calculateStudentGrade(
       studentId,
@@ -120,28 +144,40 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
     } else {
       setPendingDbaInput('Competencias básicas del periodo');
     }
-    setWeaknessesInput('Comprensión de conceptos algebraicos y resolución paso a paso');
+    setWeaknessesInput('Comprensión de conceptos y resolución procedimental paso a paso');
   };
 
   // Generate Plan with AI
   const handleGeneratePlanAI = async () => {
-    const student = students.find((s) => s.id === selectedStudentId);
-    if (!student) return;
+    let student = students.find((s) => s.id === selectedStudentId);
+    if (!student && courseStudents.length > 0) {
+      student = courseStudents[0];
+      handleSelectStudent(student.id);
+    }
+
+    if (!student) {
+      setGenerationError('Por favor selecciona un estudiante para redactar el plan.');
+      return;
+    }
 
     setGeneratingWithAI(true);
+    setGenerationError(null);
+
     try {
       const res = await requestAIImprovementPlan({
         studentName: student.name,
         grade: student.course,
         subject: selectedSubject,
-        failedEvaluations: failedEvalsInput,
-        pendingDBA: pendingDbaInput,
-        weaknesses: weaknessesInput,
+        failedEvaluations: failedEvalsInput.length > 0 ? failedEvalsInput : ['Evaluación de periodo no superada'],
+        pendingDBA: pendingDbaInput || 'Competencias básicas de la asignatura',
+        weaknesses: weaknessesInput || 'Comprensión y aplicación de conceptos clave',
         period: selectedPeriod
       });
+
       setGeneratedDraft(res);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error generating improvement plan:', err);
+      setGenerationError('Hubo un error al generar el plan. Intenta de nuevo.');
     } finally {
       setGeneratingWithAI(false);
     }
@@ -234,12 +270,7 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
 
         <button
           type="button"
-          onClick={() => {
-            setIsCreatorOpen(true);
-            if (courseStudents.length > 0 && !selectedStudentId) {
-              handleSelectStudent(courseStudents[0].id);
-            }
-          }}
+          onClick={handleOpenCreator}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:from-purple-700 hover:to-indigo-700 cursor-pointer"
         >
           <Plus className="h-4 w-4" /> Crear Nuevo Plan con IA
@@ -376,16 +407,40 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
             </div>
 
             <div className="p-6 space-y-5 text-xs max-h-[70vh] overflow-y-auto">
+              {/* Error Banner */}
+              {generationError && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-rose-700 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                    <span>{generationError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePlanAI}
+                    className="underline font-bold text-xs hover:text-rose-900 cursor-pointer"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              )}
+
               {/* Form to configure AI inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="sm:col-span-2">
-                  <label className="font-bold text-slate-800 block mb-1">
-                    Seleccionar Estudiante Destinatario:
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-800 block">
+                      Seleccionar Estudiante Destinatario:
+                    </label>
+                    {selectedStudentId && (
+                      <span className="text-[11px] text-purple-700 font-semibold">
+                        Estudiante Seleccionado
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={selectedStudentId}
                     onChange={(e) => handleSelectStudent(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-800"
+                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-800 focus:border-purple-600 focus:outline-hidden"
                   >
                     <option value="">Selecciona un estudiante...</option>
                     {courseStudents.map((st) => (
@@ -436,14 +491,38 @@ export const ImprovementPlansTab: React.FC<ImprovementPlansTabProps> = ({
                   <button
                     type="button"
                     onClick={handleGeneratePlanAI}
-                    disabled={generatingWithAI || !selectedStudentId}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-purple-700 cursor-pointer disabled:opacity-50"
+                    disabled={generatingWithAI}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs cursor-pointer transition-all disabled:opacity-50"
                   >
-                    <Sparkles className="h-4 w-4 text-amber-300" />
-                    {generatingWithAI ? 'Redactando Plan con IA...' : 'Generar Propuesta con IA'}
+                    {generatingWithAI ? (
+                      <>
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <span>Generando Plan con IA...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 text-amber-300" />
+                        <span>Generar Propuesta con IA</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
+
+              {/* Generating Animation Box */}
+              {generatingWithAI && (
+                <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-5 text-center space-y-2 animate-pulse">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white shadow-xs">
+                    <Sparkles className="h-5 w-5 text-amber-300 animate-spin" />
+                  </div>
+                  <h4 className="font-bold text-sm text-purple-900">
+                    Redactando Plan de Mejoramiento Pedagógico...
+                  </h4>
+                  <p className="text-xs text-purple-700 max-w-md mx-auto">
+                    Analizando los Derechos Básicos de Aprendizaje (DBA), calibrando las actividades de nivelación y redactando los compromisos y rúbrica formal bajo el Decreto MEN 1290.
+                  </p>
+                </div>
+              )}
 
               {/* Step 2: Preview generated AI proposal */}
               {generatedDraft && (
